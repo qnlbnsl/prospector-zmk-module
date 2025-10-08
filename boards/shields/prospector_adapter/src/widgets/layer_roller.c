@@ -31,8 +31,15 @@ static void layer_roller_update_cb(struct layer_roller_state state) {
 }
 
 static struct layer_roller_state layer_roller_get_state(const zmk_event_t *eh) {
-    uint8_t index = zmk_keymap_highest_layer_active();
-    LOG_INF("Roller set to: %d", index);
+    uint8_t original_index = zmk_keymap_highest_layer_active();
+    uint8_t index = original_index;
+    
+    // Clamp the index to valid roller bounds to prevent getting stuck between layers
+    if (index >= ZMK_KEYMAP_LAYERS_LEN) {
+        index = ZMK_KEYMAP_LAYERS_LEN - 1;
+    }
+    
+    LOG_INF("Roller set to: %d (clamped from %d)", index, original_index);
     return (struct layer_roller_state){
         .index = index,
     };
