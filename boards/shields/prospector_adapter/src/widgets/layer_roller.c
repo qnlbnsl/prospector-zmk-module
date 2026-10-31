@@ -11,16 +11,21 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-static char layer_names_buffer[256] = {0}; // Buffer for concatenated layer names
+static char layer_names_buffer[512] = {0}; // Buffer for concatenated layer names
+
+// Roller row for each layer index, or -1 for layers hidden from the roller.
+static int8_t roller_rows[ZMK_KEYMAP_LAYERS_LEN];
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
 struct layer_roller_state {
-    uint8_t index;
+    uint8_t row;
 };
 
 static void layer_roller_set_sel(lv_obj_t *roller, struct layer_roller_state state) {
-    lv_roller_set_selected(roller, state.index, LV_ANIM_ON);
+    if (lv_roller_get_selected(roller) != state.row) {
+        lv_roller_set_selected(roller, state.row, LV_ANIM_ON);
+    }
 }
 
 static void layer_roller_update_cb(struct layer_roller_state state) {
@@ -30,19 +35,19 @@ static void layer_roller_update_cb(struct layer_roller_state state) {
     }
 }
 
+// Show the highest active layer that has a roller row. Hidden layers (e.g. home-row-mod helper
+// layers that flash on and off while typing) fall through to the visible layer beneath them.
 static struct layer_roller_state layer_roller_get_state(const zmk_event_t *eh) {
-    uint8_t original_index = zmk_keymap_highest_layer_active();
-    uint8_t index = original_index;
-    
-    // Clamp the index to valid roller bounds to prevent getting stuck between layers
-    if (index >= ZMK_KEYMAP_LAYERS_LEN) {
-        index = ZMK_KEYMAP_LAYERS_LEN - 1;
+    for (int i = ZMK_KEYMAP_LAYERS_LEN - 1; i >= 0; i--) {
+        zmk_keymap_layer_id_t id = zmk_keymap_layer_index_to_id(i);
+        if (id == ZMK_KEYMAP_LAYER_ID_INVAL || roller_rows[i] < 0) {
+            continue;
+        }
+        if (zmk_keymap_layer_active(id)) {
+            return (struct layer_roller_state){.row = roller_rows[i]};
+        }
     }
-    
-    LOG_INF("Roller set to: %d (clamped from %d)", index, original_index);
-    return (struct layer_roller_state){
-        .index = index,
-    };
+    return (struct layer_roller_state){.row = 0};
 }
 
 ZMK_DISPLAY_WIDGET_LISTENER(widget_layer_roller, struct layer_roller_state, layer_roller_update_cb,
@@ -104,39 +109,45 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
     widget->obj = lv_roller_create(parent);
 
     layer_names_buffer[0] = '\0';
-    char *ptr = layer_names_buffer;
+    size_t len = 0;
+    int8_t rows = 0;
+    for (int i = 0; i < ZMK_KEYMAP_LAYERS_LEN; i++) {
+        roller_rows[i] = -1;
+    }
 
     for (int i = 0; i < ZMK_KEYMAP_LAYERS_LEN; i++) {
         const char *layer_name = zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(i));
-        if (layer_name) {
-            if (i > 0) {
-                strcat(ptr, "\n");
-                ptr += strlen(ptr);
-            }
-
-            if (layer_name && *layer_name) {
-#if IS_ENABLED(CONFIG_LAYER_ROLLER_ALL_CAPS)
-                while (*layer_name) {
-                    *ptr = toupper((unsigned char)*layer_name);
-                    ptr++;
-                    layer_name++;
-                }
-                *ptr = '\0';
-#else
-                strcat(ptr, layer_name);
-                ptr += strlen(layer_name);
-#endif
-            } else {
-                // Just use the number for unnamed layers
-                char index_str[12];
-                snprintf(index_str, sizeof(index_str), "%d", i);
-                strcat(ptr, index_str);
-                ptr += strlen(index_str);
-            }
+        bool unnamed = !layer_name || !*layer_name;
+#if IS_ENABLED(CONFIG_PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED)
+        if (unnamed) {
+            continue;
         }
+#endif
+        char name[32];
+        if (unnamed) {
+            snprintf(name, sizeof(name), "%d", i); // just use the number for unnamed layers
+        } else {
+            snprintf(name, sizeof(name), "%s", layer_name);
+        }
+#if IS_ENABLED(CONFIG_PROSPECTOR_LAYER_ROLLER_ALL_CAPS)
+        for (char *c = name; *c; c++) {
+            *c = toupper((unsigned char)*c);
+        }
+#endif
+        int n = snprintf(layer_names_buffer + len, sizeof(layer_names_buffer) - len, "%s%s",
+                         rows > 0 ? "\n" : "", name);
+        if (n < 0 || len + n >= sizeof(layer_names_buffer)) {
+            LOG_WRN("Layer roller: names buffer full, layer %d and up not shown", i);
+            layer_names_buffer[len] = '\0';
+            break;
+        }
+        len += n;
+        roller_rows[i] = rows++;
     }
 
-    lv_roller_set_options(widget->obj, layer_names_buffer, LV_ROLLER_MODE_INFINITE);
+    // Normal (not infinite) mode: the infinite roller repeats the list and can animate to the
+    // wrong copy when layers change quickly.
+    lv_roller_set_options(widget->obj, layer_names_buffer, LV_ROLLER_MODE_NORMAL);
 
     static lv_style_t style;
     lv_style_init(&style);
@@ -182,7 +193,7 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
     // lv_obj_add_style(widget->obj, &style_roller_sel, LV_PART_SELECTED);
     // lv_obj_set_style_radius(widget->obj, 20, LV_PART_MAIN);
 
-    lv_obj_set_style_anim_time(widget->obj, 100, 0);
+    lv_obj_set_style_anim_time(widget->obj, CONFIG_PROSPECTOR_LAYER_ROLLER_ANIM_MS, 0);
 
     sys_slist_append(&widgets, &widget->node);
 
