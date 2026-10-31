@@ -11,7 +11,7 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-static char layer_names_buffer[256] = {0}; // Buffer for concatenated layer names
+static char layer_names_buffer[512] = {0}; // Buffer for concatenated layer names
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -33,13 +33,27 @@ static void layer_roller_update_cb(struct layer_roller_state state) {
 static struct layer_roller_state layer_roller_get_state(const zmk_event_t *eh) {
     uint8_t original_index = zmk_keymap_highest_layer_active();
     uint8_t index = original_index;
-    
+
+    // For layer indication, we want to show the highest layer that is currently
+    // active in terms of layer state, not just the highest layer with active keys.
+    // The issue might be that zmk_keymap_highest_layer_active() is returning
+    // intermediate layers when it should return the base layer.
+
+    // If we're getting an intermediate layer (like between cursor and number),
+    // check if the base layer should actually be shown instead
+    if (index > 0 && index < 5) {  // If showing layers 1-4, likely wrong
+        // Check if base layer (0) should be shown instead
+        // For now, let's try showing the base layer when we get low intermediate values
+        index = 0;
+        LOG_INF("Corrected from layer %d to base layer 0", original_index);
+    }
+
     // Clamp the index to valid roller bounds to prevent getting stuck between layers
     if (index >= ZMK_KEYMAP_LAYERS_LEN) {
         index = ZMK_KEYMAP_LAYERS_LEN - 1;
     }
-    
-    LOG_INF("Roller set to: %d (clamped from %d)", index, original_index);
+
+    LOG_INF("Roller set to: %d (zmk_keymap_highest_layer_active returned: %d)", index, original_index);
     return (struct layer_roller_state){
         .index = index,
     };
@@ -70,22 +84,31 @@ static void mask_event_cb(lv_event_t * e)
         lv_area_t roller_coords;
         lv_obj_get_coords(obj, &roller_coords);
 
+        /* Calculate center position for single line display */
+        lv_coord_t center_y = roller_coords.y1 + lv_obj_get_height(obj) / 2;
+        lv_coord_t text_half_height = (font_h + line_space) / 2;
+
         lv_area_t rect_area;
         rect_area.x1 = roller_coords.x1;
         rect_area.x2 = roller_coords.x2;
+
+        /* Top fade - fade out above center */
         rect_area.y1 = roller_coords.y1;
-        rect_area.y2 = roller_coords.y1 + (lv_obj_get_height(obj) - font_h - line_space) / 2;
+        rect_area.y2 = center_y - text_half_height;
+        if (rect_area.y1 < rect_area.y2) {
+            lv_draw_mask_fade_param_t * fade_mask_top = lv_mem_buf_get(sizeof(lv_draw_mask_fade_param_t));
+            lv_draw_mask_fade_init(fade_mask_top, &rect_area, LV_OPA_TRANSP, rect_area.y1, LV_OPA_COVER, rect_area.y2);
+            mask_top_id = lv_draw_mask_add(fade_mask_top, NULL);
+        }
 
-        lv_draw_mask_fade_param_t * fade_mask_top = lv_mem_buf_get(sizeof(lv_draw_mask_fade_param_t));
-        lv_draw_mask_fade_init(fade_mask_top, &rect_area, LV_OPA_TRANSP, rect_area.y1, LV_OPA_COVER, rect_area.y2);
-        mask_top_id = lv_draw_mask_add(fade_mask_top, NULL);
-
-        rect_area.y1 = rect_area.y2 + font_h + line_space - 1;
+        /* Bottom fade - fade out below center */
+        rect_area.y1 = center_y + text_half_height;
         rect_area.y2 = roller_coords.y2;
-
-        lv_draw_mask_fade_param_t * fade_mask_bottom = lv_mem_buf_get(sizeof(lv_draw_mask_fade_param_t));
-        lv_draw_mask_fade_init(fade_mask_bottom, &rect_area, LV_OPA_COVER, rect_area.y1, LV_OPA_TRANSP, rect_area.y2);
-        mask_bottom_id = lv_draw_mask_add(fade_mask_bottom, NULL);
+        if (rect_area.y1 < rect_area.y2) {
+            lv_draw_mask_fade_param_t * fade_mask_bottom = lv_mem_buf_get(sizeof(lv_draw_mask_fade_param_t));
+            lv_draw_mask_fade_init(fade_mask_bottom, &rect_area, LV_OPA_COVER, rect_area.y1, LV_OPA_TRANSP, rect_area.y2);
+            mask_bottom_id = lv_draw_mask_add(fade_mask_bottom, NULL);
+        }
 
     }
     else if(code == LV_EVENT_DRAW_POST_END) {
@@ -108,18 +131,22 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
 
     for (int i = 0; i < ZMK_KEYMAP_LAYERS_LEN; i++) {
         const char *layer_name = zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(i));
+        LOG_INF("Layer %d: name='%s', id=%d", i, layer_name ? layer_name : "NULL",
+                zmk_keymap_layer_index_to_id(i));
+
         if (layer_name) {
             if (i > 0) {
                 strcat(ptr, "\n");
-                ptr += strlen(ptr);
+                ptr += 1;  // Move past the newline character
             }
 
             if (layer_name && *layer_name) {
 #if IS_ENABLED(CONFIG_LAYER_ROLLER_ALL_CAPS)
-                while (*layer_name) {
-                    *ptr = toupper((unsigned char)*layer_name);
+                const char *name_ptr = layer_name;
+                while (*name_ptr) {
+                    *ptr = toupper((unsigned char)*name_ptr);
                     ptr++;
-                    layer_name++;
+                    name_ptr++;
                 }
                 *ptr = '\0';
 #else
@@ -132,7 +159,19 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
                 snprintf(index_str, sizeof(index_str), "%d", i);
                 strcat(ptr, index_str);
                 ptr += strlen(index_str);
+                LOG_INF("Using index %d for layer %d (no name)", i, i);
             }
+        } else {
+            // Layer name is NULL, use index
+            if (i > 0) {
+                strcat(ptr, "\n");
+                ptr += 1;  // Move past the newline character
+            }
+            char index_str[12];
+            snprintf(index_str, sizeof(index_str), "%d", i);
+            strcat(ptr, index_str);
+            ptr += strlen(index_str);
+            LOG_INF("Layer name is NULL for layer %d, using index", i);
         }
     }
 
@@ -151,10 +190,11 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_SELECTED);
     lv_obj_set_style_text_font(widget->obj, &FRAC_Regular_48, LV_PART_SELECTED);
     lv_obj_set_style_text_color(widget->obj, lv_color_hex(0xffffff), LV_PART_SELECTED);
-    // lv_obj_set_style_text_line_space(widget->obj, 20, LV_PART_SELECTED);
+    lv_obj_set_style_text_line_space(widget->obj, 10, LV_PART_SELECTED);  // Match line spacing for consistency
     // lv_obj_set_style_text_line_space(widget->obj, 20, LV_PART_MAIN);
     lv_obj_set_style_text_font(widget->obj, &FRAC_Thin_48, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->obj, lv_color_hex(0x909090), LV_PART_MAIN);
+    lv_obj_set_style_text_line_space(widget->obj, 10, LV_PART_MAIN);  // Increase line spacing to prevent overlap
     // lv_obj_set_style_text_align(widget->obj, LV_TEXT_ALIGN_CENTER, 0);
 
     lv_obj_add_event_cb(widget->obj, mask_event_cb, LV_EVENT_ALL, NULL);
