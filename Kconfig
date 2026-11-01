@@ -3,20 +3,16 @@ config PROSPECTOR_LAYER_ROLLER_ALL_CAPS
     default n
 
 config PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED
-    bool "Hide layers without a display-name from the layer roller"
+    bool "Hide layers without a display-name from the layer display"
     default n
     help
-      Layers with no (or an empty) display-name are left out of the roller, and while one is
-      active the roller shows the highest active named layer beneath it. Useful for helper
+      Layers with no (or an empty) display-name are never shown; while one is active the
+      display shows the highest active named layer beneath it. Useful for helper
       layers such as home-row-mod layers that would otherwise flash by while typing.
 
-config PROSPECTOR_LAYER_ROLLER_INFINITE
-    bool "Layer roller loops around (LVGL infinite roller mode)"
-    default y
-
-config PROSPECTOR_LAYER_ROLLER_ANIM_MS
-    int "Layer roller animation time in milliseconds"
-    default 100
+config PROSPECTOR_LAYER_FADE_MS
+    int "Layer name cross-fade time in milliseconds (0 = instant)"
+    default 150
     range 0 1000
 
 config PROSPECTOR_ROTATE_DISPLAY_180

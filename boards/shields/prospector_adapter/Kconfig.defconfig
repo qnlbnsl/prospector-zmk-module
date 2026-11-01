@@ -24,6 +24,11 @@ endchoice
 config ZMK_DISPLAY_DEDICATED_THREAD_STACK_SIZE
     default 4096
 
+# Below the BLE/split work (priority 5) so a busy or stuck display can never delay layer sync
+# to the peripherals.
+config ZMK_DISPLAY_DEDICATED_THREAD_PRIORITY
+    default 10
+
 choice ST7789V_PIXEL_FORMAT
 	default ST7789V_RGB565
 endchoice
