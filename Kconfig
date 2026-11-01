@@ -7,6 +7,11 @@ config PROSPECTOR_STATUS_SCREEN_CLASSIC
     help
         Standard Prospector status screen
 
+config PROSPECTOR_STATUS_SCREEN_GLOVE80
+    bool "Glove80 layout"
+    help
+        Modifier/caps status row, cross-fading layer name, two battery cells with the OS logo
+
 config PROSPECTOR_STATUS_SCREEN_RADII
     bool "Radii layout"
     help
@@ -81,3 +86,58 @@ config PROSPECTOR_LAYER_NAME_UPPERCASE
     default y
     help
       When enabled, layer names will be converted to uppercase for display.
+
+if PROSPECTOR_STATUS_SCREEN_GLOVE80
+
+config PROSPECTOR_BATTERY_CELLS
+    int "Battery cells to show (first N split peripherals)"
+    default 2
+    help
+      Only the first N peripheral slots get a battery cell, e.g. the two keyboard halves when
+      trackpads are paired as further peripherals.
+
+config PROSPECTOR_BATTERY_SWAP
+    bool "Swap the battery cells (show slot 1 on the left)"
+    help
+      Split slot 0 is the half that was paired first. Enable this when that is the right half,
+      so the left cell shows the left half.
+
+config PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED
+    bool "Hide layers without a display-name from the layer display"
+    help
+      Layers with no (or an empty) display-name are never shown; while one is active the
+      display shows the highest active named layer beneath it. Useful for helper layers such
+      as home-row-mod layers that would otherwise flash by while typing.
+
+config PROSPECTOR_LAYER_FADE_MS
+    int "Layer name cross-fade time in milliseconds (0 = instant)"
+    default 150
+    range 0 1000
+
+config PROSPECTOR_LAYER_NAME_SKIP
+    string "Comma-separated layer display-names never shown as the layer name"
+    default "macOS"
+    help
+      Mode layers that are shown elsewhere (e.g. the macOS layer, shown as the OS icon) are
+      skipped; the layer name shows the highest active layer beneath them.
+
+config PROSPECTOR_OS_MACOS_LAYER
+    string "Layer display-name that means macOS is selected"
+    default "macOS"
+
+choice PROSPECTOR_DEFAULT_OS
+    prompt "OS icon shown when no OS layer is active"
+    default PROSPECTOR_DEFAULT_OS_LINUX
+
+config PROSPECTOR_DEFAULT_OS_LINUX
+    bool "Linux"
+
+config PROSPECTOR_DEFAULT_OS_MACOS
+    bool "macOS"
+
+config PROSPECTOR_DEFAULT_OS_WINDOWS
+    bool "Windows"
+
+endchoice
+
+endif
