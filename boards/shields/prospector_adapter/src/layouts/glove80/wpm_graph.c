@@ -26,11 +26,7 @@ static int32_t history[POINTS];
 static int head;
 
 static void set_top(int32_t top) {
-#if LVGL_VERSION_MAJOR > 9 || (LVGL_VERSION_MAJOR == 9 && LVGL_VERSION_MINOR >= 3)
-    lv_chart_set_axis_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, top);
-#else
     lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, top);
-#endif
 }
 
 static void sample_cb(lv_timer_t *timer) {
