@@ -149,9 +149,10 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
         roller_rows[i] = rows++;
     }
 
-    // Normal (not infinite) mode: the infinite roller repeats the list and can animate to the
-    // wrong copy when layers change quickly.
-    lv_roller_set_options(widget->obj, layer_names_buffer, LV_ROLLER_MODE_NORMAL);
+    lv_roller_set_options(widget->obj, layer_names_buffer,
+                          IS_ENABLED(CONFIG_PROSPECTOR_LAYER_ROLLER_INFINITE)
+                              ? LV_ROLLER_MODE_INFINITE
+                              : LV_ROLLER_MODE_NORMAL);
 
     static lv_style_t style;
     lv_style_init(&style);

@@ -10,6 +10,10 @@ config PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED
       active the roller shows the highest active named layer beneath it. Useful for helper
       layers such as home-row-mod layers that would otherwise flash by while typing.
 
+config PROSPECTOR_LAYER_ROLLER_INFINITE
+    bool "Layer roller loops around (LVGL infinite roller mode)"
+    default y
+
 config PROSPECTOR_LAYER_ROLLER_ANIM_MS
     int "Layer roller animation time in milliseconds"
     default 100
