@@ -23,6 +23,7 @@ struct layer_roller_state {
 };
 
 static void layer_roller_set_sel(lv_obj_t *roller, struct layer_roller_state state) {
+    LOG_DBG("Layer roller: selected %d, want %d", lv_roller_get_selected(roller), state.row);
     if (lv_roller_get_selected(roller) != state.row) {
         lv_roller_set_selected(roller, state.row, LV_ANIM_ON);
     }
@@ -44,9 +45,11 @@ static struct layer_roller_state layer_roller_get_state(const zmk_event_t *eh) {
             continue;
         }
         if (zmk_keymap_layer_active(id)) {
+            LOG_DBG("Layer roller: layer index %d -> row %d", i, roller_rows[i]);
             return (struct layer_roller_state){.row = roller_rows[i]};
         }
     }
+    LOG_DBG("Layer roller: no named layer active -> row 0");
     return (struct layer_roller_state){.row = 0};
 }
 
@@ -142,6 +145,7 @@ int zmk_widget_layer_roller_init(struct zmk_widget_layer_roller *widget, lv_obj_
             break;
         }
         len += n;
+        LOG_DBG("Layer roller: layer %d '%s' -> row %d", i, name, rows);
         roller_rows[i] = rows++;
     }
 
