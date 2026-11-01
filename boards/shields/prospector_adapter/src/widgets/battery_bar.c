@@ -7,6 +7,9 @@
  * reported battery within the same display tick, one half's update was lost and its cell stayed
  * on "X" or blank. Its init also called the state function with a NULL event.)
  *
+ * Only the first CONFIG_PROSPECTOR_BATTERY_CELLS slots are shown (the keyboard halves; trackpads
+ * pair as later slots).
+ *
  * CONFIG_PROSPECTOR_BATTERY_SWAP reverses the cells, for when slot 0 (the half that was paired
  * first) is the right half.
  */
@@ -27,7 +30,7 @@
 #include <zephyr/logging/log.h>
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-#define SLOTS ZMK_SPLIT_BLE_PERIPHERAL_COUNT
+#define SLOTS MIN(CONFIG_PROSPECTOR_BATTERY_CELLS, ZMK_SPLIT_BLE_PERIPHERAL_COUNT)
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 

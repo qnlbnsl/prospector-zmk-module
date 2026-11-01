@@ -2,6 +2,13 @@ config PROSPECTOR_LAYER_ROLLER_ALL_CAPS
     bool "Convert layer names to all caps"
     default n
 
+config PROSPECTOR_BATTERY_CELLS
+    int "Battery cells to show (first N split peripherals)"
+    default 2
+    help
+      Only the first N peripheral slots get a battery cell, e.g. the two keyboard halves when
+      trackpads are paired as further peripherals.
+
 config PROSPECTOR_BATTERY_SWAP
     bool "Swap the battery cells (show slot 1 on the left)"
     default n
