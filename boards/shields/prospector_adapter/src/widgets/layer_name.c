@@ -28,9 +28,29 @@ struct layer_name_state {
     uint8_t index;
 };
 
+static bool name_skipped(const char *name) {
+    const char *list = CONFIG_PROSPECTOR_LAYER_NAME_SKIP;
+    size_t len = strlen(name);
+    while (*list) {
+        const char *end = strchr(list, ',');
+        size_t n = end ? (size_t)(end - list) : strlen(list);
+        if (n == len && strncmp(list, name, n) == 0) {
+            return true;
+        }
+        if (!end) {
+            break;
+        }
+        list = end + 1;
+    }
+    return false;
+}
+
 static bool layer_visible(uint8_t index) {
-#if IS_ENABLED(CONFIG_PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED)
     const char *name = zmk_keymap_layer_name(zmk_keymap_layer_index_to_id(index));
+    if (name && *name && name_skipped(name)) {
+        return false;
+    }
+#if IS_ENABLED(CONFIG_PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED)
     return name && *name;
 #else
     return true;

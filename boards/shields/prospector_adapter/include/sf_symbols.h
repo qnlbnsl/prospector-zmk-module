@@ -4,3 +4,7 @@
 #define SF_SYMBOL_SHIFT "\xF4\x80\x86\x9D"
 #define SF_SYMBOL_CAPS_LOCK "\xF4\x80\x86\xA1"
 #define SF_SYMBOL_CHARACTER_CURSOR_IBEAM "\xF4\x80\x85\xAB"
+/* OS logos in OS_Icons_26 (Font Awesome brands) */
+#define OS_ICON_APPLE "\xEF\x85\xB9"
+#define OS_ICON_WINDOWS "\xEF\x85\xBA"
+#define OS_ICON_LINUX "\xEF\x85\xBC"

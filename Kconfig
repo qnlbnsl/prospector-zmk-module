@@ -35,3 +35,28 @@ config PROSPECTOR_FIXED_BRIGHTNESS
     default 50
     range 1 100
     depends on !PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+config PROSPECTOR_LAYER_NAME_SKIP
+    string "Comma-separated layer display-names never shown as the layer name"
+    default "macOS"
+    help
+      Mode layers that are shown elsewhere (e.g. the macOS layer, shown as the OS icon) are
+      skipped; the layer name shows the highest active layer beneath them.
+
+config PROSPECTOR_OS_MACOS_LAYER
+    string "Layer display-name that means macOS is selected"
+    default "macOS"
+
+choice PROSPECTOR_DEFAULT_OS
+    prompt "OS icon shown when no OS layer is active"
+    default PROSPECTOR_DEFAULT_OS_LINUX
+
+config PROSPECTOR_DEFAULT_OS_LINUX
+    bool "Linux"
+
+config PROSPECTOR_DEFAULT_OS_MACOS
+    bool "macOS"
+
+config PROSPECTOR_DEFAULT_OS_WINDOWS
+    bool "Windows"
+
+endchoice
