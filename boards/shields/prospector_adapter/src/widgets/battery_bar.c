@@ -134,7 +134,7 @@ int zmk_widget_battery_bar_init(struct zmk_widget_battery_bar *widget, lv_obj_t 
     lv_obj_set_flex_flow(widget->obj, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(widget->obj, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(widget->obj, 12, LV_PART_MAIN);
+    lv_obj_set_style_pad_column(widget->obj, 56, LV_PART_MAIN); /* room for the OS logo */
     lv_obj_set_style_pad_bottom(widget->obj, 12, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(widget->obj, 16, LV_PART_MAIN);
 

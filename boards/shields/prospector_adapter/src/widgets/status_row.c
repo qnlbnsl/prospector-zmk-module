@@ -1,7 +1,9 @@
 /*
  * Status row across the top of the screen:
  *
- *   [OS]   ⌃ Ctrl   ⌥ Alt   ⌘ Super   ⇧ Shift   ⇪ Caps Lock   I Caps Word
+ *   ⌃ Ctrl   ⌥ Alt   ⌘ Super   ⇧ Shift: white held, cyan Caps Word, amber sticky / ⇪ Caps Lock
+ *
+ * plus a separate OS icon (zmk_widget_os_icon_create), placed by the screen.
  *
  * Modifier icons light up while the modifier is held (explicit modifiers only, so a key that
  * merely sends e.g. Ctrl+F19 does not flash Ctrl). OS icon: macOS while a layer named
@@ -18,6 +20,7 @@
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
 #include <zmk/events/layer_state_changed.h>
+#include <zmk/events/position_state_changed.h>
 #include <zmk/hid.h>
 #include <zmk/keymap.h>
 #include <dt-bindings/zmk/modifiers.h>
@@ -39,19 +42,20 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define COLOR_MOD 0xFFFFFF
 #define COLOR_CAPS_LOCK 0xFFB802
 #define COLOR_CAPS_WORD 0x00FFE5
-#define COLOR_OS 0xB0B0B0
+#define COLOR_OS 0x909090
 
 #define HID_INDICATOR_CAPS_LOCK BIT(1)
 
-enum { ICON_CTRL, ICON_ALT, ICON_GUI, ICON_SHIFT, ICON_CAPS_LOCK, ICON_CAPS_WORD, ICON_COUNT };
+/* Shift doubles as the caps indicator: white = Shift held, cyan = Caps Word, amber = sticky Shift
+ * (Shift active with no key physically down, e.g. &sk LSHFT) or Caps Lock (drawn as the caps lock
+ * arrow). */
+enum { ICON_CTRL, ICON_ALT, ICON_GUI, ICON_SHIFT, ICON_COUNT };
 
 static const char *const icon_text[ICON_COUNT] = {
-    SF_SYMBOL_CONTROL,   SF_SYMBOL_OPTION,    SF_SYMBOL_COMMAND,
-    SF_SYMBOL_SHIFT,     SF_SYMBOL_CAPS_LOCK, SF_SYMBOL_CHARACTER_CURSOR_IBEAM,
-};
-
-static const uint32_t icon_on_color[ICON_COUNT] = {
-    COLOR_MOD, COLOR_MOD, COLOR_MOD, COLOR_MOD, COLOR_CAPS_LOCK, COLOR_CAPS_WORD,
+    SF_SYMBOL_CONTROL,
+    SF_SYMBOL_OPTION,
+    SF_SYMBOL_COMMAND,
+    SF_SYMBOL_SHIFT,
 };
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
@@ -63,6 +67,19 @@ static lv_obj_t *icons[ICON_COUNT];
 /* State written from event listeners, read on the display work queue. */
 static atomic_t caps_lock;
 static atomic_t caps_word;
+
+/* Physically pressed key positions, to tell a held Shift from a latched (sticky) one. */
+#define POSITION_WORDS 4
+static atomic_t pressed[POSITION_WORDS];
+
+static bool any_key_pressed(void) {
+    for (int i = 0; i < POSITION_WORDS; i++) {
+        if (atomic_get(&pressed[i])) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static const char *os_icon(void) {
     for (int i = 0; i < ZMK_KEYMAP_LAYERS_LEN; i++) {
@@ -84,9 +101,14 @@ static const char *os_icon(void) {
 #endif
 }
 
-static void set_icon(int i, bool on) {
-    lv_obj_set_style_text_color(icons[i], lv_color_hex(on ? icon_on_color[i] : COLOR_OFF),
-                                LV_PART_MAIN);
+static void set_color(lv_obj_t *obj, uint32_t rgb) {
+    lv_obj_set_style_text_color(obj, lv_color_hex(rgb), LV_PART_MAIN);
+}
+
+static void set_text(lv_obj_t *obj, const char *text) {
+    if (strcmp(lv_label_get_text(obj), text) != 0) {
+        lv_label_set_text(obj, text);
+    }
 }
 
 static void render_work_cb(struct k_work *work) {
@@ -95,22 +117,36 @@ static void render_work_cb(struct k_work *work) {
     }
     zmk_mod_flags_t mods = zmk_hid_get_explicit_mods();
 
-    set_icon(ICON_CTRL, mods & (MOD_LCTL | MOD_RCTL));
-    set_icon(ICON_ALT, mods & (MOD_LALT | MOD_RALT));
-    set_icon(ICON_GUI, mods & (MOD_LGUI | MOD_RGUI));
-    set_icon(ICON_SHIFT, mods & (MOD_LSFT | MOD_RSFT));
-    set_icon(ICON_CAPS_LOCK, atomic_get(&caps_lock));
-    set_icon(ICON_CAPS_WORD, atomic_get(&caps_word));
+    set_color(icons[ICON_CTRL], (mods & (MOD_LCTL | MOD_RCTL)) ? COLOR_MOD : COLOR_OFF);
+    set_color(icons[ICON_ALT], (mods & (MOD_LALT | MOD_RALT)) ? COLOR_MOD : COLOR_OFF);
+    set_color(icons[ICON_GUI], (mods & (MOD_LGUI | MOD_RGUI)) ? COLOR_MOD : COLOR_OFF);
 
-    const char *os = os_icon();
-    if (strcmp(lv_label_get_text(os_label), os) != 0) {
-        lv_label_set_text(os_label, os);
+    if (atomic_get(&caps_lock)) {
+        set_text(icons[ICON_SHIFT], SF_SYMBOL_CAPS_LOCK);
+        set_color(icons[ICON_SHIFT], COLOR_CAPS_LOCK);
+    } else {
+        bool shift = mods & (MOD_LSFT | MOD_RSFT);
+        set_text(icons[ICON_SHIFT], SF_SYMBOL_SHIFT);
+        set_color(icons[ICON_SHIFT], atomic_get(&caps_word) ? COLOR_CAPS_WORD
+                                     : !shift               ? COLOR_OFF
+                                     : any_key_pressed()    ? COLOR_MOD
+                                                            : COLOR_CAPS_LOCK);
+    }
+
+    if (os_label) {
+        set_text(os_label, os_icon());
     }
 }
 
 static K_WORK_DEFINE(render_work, render_work_cb);
 
 static int status_row_listener(const zmk_event_t *eh) {
+    const struct zmk_position_state_changed *pos = as_zmk_position_state_changed(eh);
+    if (pos) {
+        if (pos->position < POSITION_WORDS * ATOMIC_BITS) {
+            atomic_set_bit_to(pressed, pos->position, pos->state);
+        }
+    }
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
     const struct zmk_hid_indicators_changed *ind = as_zmk_hid_indicators_changed(eh);
     if (ind) {
@@ -133,6 +169,7 @@ static int status_row_listener(const zmk_event_t *eh) {
 ZMK_LISTENER(widget_status_row, status_row_listener);
 ZMK_SUBSCRIPTION(widget_status_row, zmk_keycode_state_changed);
 ZMK_SUBSCRIPTION(widget_status_row, zmk_layer_state_changed);
+ZMK_SUBSCRIPTION(widget_status_row, zmk_position_state_changed);
 #if IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
 ZMK_SUBSCRIPTION(widget_status_row, zmk_hid_indicators_changed);
 #endif
@@ -147,33 +184,13 @@ int zmk_widget_status_row_init(struct zmk_widget_status_row *widget, lv_obj_t *p
     lv_obj_set_flex_flow(widget->obj, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(widget->obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(widget->obj, 10, LV_PART_MAIN);
-
-    os_label = lv_label_create(widget->obj);
-    lv_obj_set_style_text_font(os_label, &OS_Icons_26, LV_PART_MAIN);
-    lv_obj_set_style_text_color(os_label, lv_color_hex(COLOR_OS), LV_PART_MAIN);
-    lv_obj_set_style_pad_right(os_label, 8, LV_PART_MAIN);
-    lv_label_set_text(os_label, "");
+    lv_obj_set_style_pad_column(widget->obj, 22, LV_PART_MAIN);
 
     for (int i = 0; i < ICON_COUNT; i++) {
-#if !IS_ENABLED(CONFIG_ZMK_HID_INDICATORS)
-        if (i == ICON_CAPS_LOCK) {
-            icons[i] = lv_label_create(widget->obj);
-            lv_obj_add_flag(icons[i], LV_OBJ_FLAG_HIDDEN);
-            continue;
-        }
-#endif
-#if !IS_ENABLED(CONFIG_DT_HAS_ZMK_BEHAVIOR_CAPS_WORD_ENABLED)
-        if (i == ICON_CAPS_WORD) {
-            icons[i] = lv_label_create(widget->obj);
-            lv_obj_add_flag(icons[i], LV_OBJ_FLAG_HIDDEN);
-            continue;
-        }
-#endif
         icons[i] = lv_label_create(widget->obj);
         lv_obj_set_style_text_font(icons[i], &SF_Compact_Text_Bold_32, LV_PART_MAIN);
         lv_label_set_text(icons[i], icon_text[i]);
-        set_icon(i, false);
+        set_color(icons[i], COLOR_OFF);
     }
 
     sys_slist_append(&widgets, &widget->node);
@@ -183,3 +200,14 @@ int zmk_widget_status_row_init(struct zmk_widget_status_row *widget, lv_obj_t *p
 }
 
 lv_obj_t *zmk_widget_status_row_obj(struct zmk_widget_status_row *widget) { return widget->obj; }
+
+lv_obj_t *zmk_widget_os_icon_create(lv_obj_t *parent) {
+    os_label = lv_label_create(parent);
+    lv_obj_set_style_text_font(os_label, &OS_Icons_26, LV_PART_MAIN);
+    set_color(os_label, COLOR_OS);
+    lv_label_set_text(os_label, "");
+    if (initialized) {
+        render_work_cb(NULL);
+    }
+    return os_label;
+}
