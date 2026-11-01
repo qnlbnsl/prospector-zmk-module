@@ -126,7 +126,7 @@ static void split_central_process_connection(struct bt_conn *conn) {
             info.le.latency, info.le.phy->rx_phy);
 
     raise_zmk_split_central_status_changed((struct zmk_split_central_status_changed){
-        .slot = peripheral_slot_index_for_conn(conn),
+        .slot = psptr_peripheral_slot_index_for_conn(conn),
         .connected = true,
     });
 }
@@ -170,7 +170,7 @@ static void split_central_disconnected(struct bt_conn *conn, uint8_t reason) {
     LOG_DBG("Disconnected: %s (reason %d)", addr_str, reason);
 
     raise_zmk_split_central_status_changed((struct zmk_split_central_status_changed){
-        .slot = peripheral_slot_index_for_conn(conn),
+        .slot = psptr_peripheral_slot_index_for_conn(conn),
         .connected = false,
     });
 

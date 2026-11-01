@@ -2,6 +2,13 @@ config PROSPECTOR_LAYER_ROLLER_ALL_CAPS
     bool "Convert layer names to all caps"
     default n
 
+config PROSPECTOR_BATTERY_SWAP
+    bool "Swap the battery cells (show slot 1 on the left)"
+    default n
+    help
+      Split slot 0 is the half that was paired first. Enable this when that is the right half,
+      so the left cell shows the left half.
+
 config PROSPECTOR_LAYER_ROLLER_HIDE_UNNAMED
     bool "Hide layers without a display-name from the layer display"
     default n
