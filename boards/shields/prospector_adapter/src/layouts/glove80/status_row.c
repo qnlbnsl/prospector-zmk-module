@@ -188,6 +188,7 @@ int zmk_widget_status_row_init(struct zmk_widget_status_row *widget, lv_obj_t *p
     lv_obj_set_flex_align(widget->obj, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER,
                           LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(widget->obj, 22, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(widget->obj, 5, LV_PART_MAIN);
 
     for (int i = 0; i < ICON_COUNT; i++) {
         icons[i] = lv_label_create(widget->obj);
@@ -207,6 +208,7 @@ lv_obj_t *zmk_widget_status_row_obj(struct zmk_widget_status_row *widget) { retu
 lv_obj_t *zmk_widget_os_icon_create(lv_obj_t *parent) {
     os_label = lv_label_create(parent);
     lv_obj_set_style_text_font(os_label, &OS_Icons_26, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(os_label, 2, LV_PART_MAIN);
     set_color(os_label, COLOR_OS);
     lv_label_set_text(os_label, "");
     if (initialized) {

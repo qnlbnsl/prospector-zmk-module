@@ -54,6 +54,7 @@ lv_obj_t *zmk_widget_wpm_graph_create(lv_obj_t *parent) {
     lv_obj_set_flex_flow(text, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(text, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
     lv_obj_set_style_pad_column(text, 5, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(text, 2, LV_PART_MAIN);
     lv_obj_align(text, LV_ALIGN_LEFT_MID, 0, 0);
 
     num = lv_label_create(text);
@@ -70,7 +71,8 @@ lv_obj_t *zmk_widget_wpm_graph_create(lv_obj_t *parent) {
     chart = lv_chart_create(row);
     lv_obj_set_size(chart, lv_pct(55), lv_pct(100));
     lv_obj_align(chart, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_obj_set_style_pad_all(chart, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_hor(chart, 2, LV_PART_MAIN);
+    lv_obj_set_style_pad_ver(chart, 4, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(chart, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(chart, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(chart, 0, LV_PART_MAIN);

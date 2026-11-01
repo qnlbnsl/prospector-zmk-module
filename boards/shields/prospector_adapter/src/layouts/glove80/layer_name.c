@@ -134,7 +134,7 @@ int zmk_widget_layer_name_init(struct zmk_widget_layer_name *w, lv_obj_t *parent
         lv_obj_set_style_text_color(l, lv_color_white(), LV_PART_MAIN);
         lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
         lv_obj_set_style_opa(l, LV_OPA_TRANSP, LV_PART_MAIN);
-        lv_obj_align(l, LV_ALIGN_CENTER, 0, -6);
+        lv_obj_align(l, LV_ALIGN_TOP_MID, 0, 0); /* 52 px line box (FR_Regular_48) */
         lv_label_set_text(l, "");
         w->label[i] = l;
     }
@@ -145,7 +145,7 @@ int zmk_widget_layer_name_init(struct zmk_widget_layer_name *w, lv_obj_t *parent
     lv_obj_set_style_radius(w->bar, 3, LV_PART_MAIN);
     lv_obj_set_style_bg_opa(w->bar, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_bg_color(w->bar, lv_color_white(), LV_PART_MAIN);
-    lv_obj_align(w->bar, LV_ALIGN_CENTER, 0, 26); /* just under the name */
+    lv_obj_align(w->bar, LV_ALIGN_TOP_MID, 0, 54); /* 2 px under the line box */
 
     w->cur = 0;
     w->shown = -1;
